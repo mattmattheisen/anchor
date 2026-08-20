@@ -108,7 +108,17 @@ def classify_curve_shape(
 
     if two_ten < 0 and two_thirty < 0:
         return "INVERTED"
-    def interpolated_yield(
+
+    if two_ten > 50 and two_thirty > 50:
+        return "STEEP"
+
+    if abs(two_ten) <= 25 and abs(two_thirty) <= 25:
+        return "FLAT"
+
+    return "NORMAL"
+
+
+def interpolated_yield(
     points: Iterable[TreasuryPoint],
     maturity_years: float,
 ) -> float:
@@ -141,25 +151,23 @@ def classify_curve_shape(
 
     for left, right in zip(sorted_points, sorted_points[1:]):
         if left.maturity_years < maturity_years < right.maturity_years:
-            maturity_range = right.maturity_years - left.maturity_years
+            maturity_range = (
+                right.maturity_years - left.maturity_years
+            )
+
             maturity_fraction = (
                 maturity_years - left.maturity_years
             ) / maturity_range
 
-            interpolated = left.yield_percent + maturity_fraction * (
-                right.yield_percent - left.yield_percent
+            interpolated = (
+                left.yield_percent
+                + maturity_fraction
+                * (right.yield_percent - left.yield_percent)
             )
 
             return round(interpolated, 4)
 
     raise ValueError(
-        f"Unable to interpolate Treasury maturity {maturity_years} years."
+        f"Unable to interpolate Treasury maturity "
+        f"{maturity_years} years."
     )
-
-    if two_ten > 50 and two_thirty > 50:
-        return "STEEP"
-
-    if abs(two_ten) <= 25 and abs(two_thirty) <= 25:
-        return "FLAT"
-
-    return "NORMAL"
