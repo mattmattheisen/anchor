@@ -36,6 +36,28 @@ def make_neutral_regime():
     )
 
 
+def make_adverse_regime():
+    """
+    Construct an adverse fixed-income regime characterized
+    by inflation pressure, rising real rates and term
+    premium, and stressed credit conditions.
+
+    Anchor should respond with a materially more defensive
+    portfolio posture.
+    """
+
+    return RegimeAssessment(
+        policy="RESTRICTIVE",
+        growth="WEAKENING",
+        inflation="PRESSURE",
+        real_rates="PRESSURE",
+        term_premium="RISING",
+        credit="STRESSED",
+        dominant_driver="INFLATION",
+        confidence="HIGH",
+    )
+
+
 def make_realistic_opportunity_set():
     """
     Construct a diversified fixed-income opportunity set.
@@ -301,26 +323,6 @@ def test_acceptance_output_preserves_public_contract():
         "rationale",
         "cautions",
     }
-    def make_adverse_regime():
-    """
-    Construct an adverse fixed-income regime characterized
-    by inflation pressure, rising real rates and term
-    premium, and stressed credit conditions.
-
-    Anchor should respond with a materially more defensive
-    portfolio posture.
-    """
-
-    return RegimeAssessment(
-        policy="RESTRICTIVE",
-        growth="WEAKENING",
-        inflation="PRESSURE",
-        real_rates="PRESSURE",
-        term_premium="RISING",
-        credit="STRESSED",
-        dominant_driver="INFLATION",
-        confidence="HIGH",
-    )
 
 
 def test_adverse_regime_runs_end_to_end():
