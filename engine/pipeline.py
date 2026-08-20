@@ -36,6 +36,7 @@ class PipelineOpportunityResult:
     maturity_years: float
     stated_yield_percent: float
     rating: str | None
+    callable: bool
 
     spread_compensation: str
     regime_fit: str
@@ -102,6 +103,7 @@ def build_pipeline_result(
         maturity_years=ranked.maturity_years,
         stated_yield_percent=ranked.yield_percent,
         rating=ranked.rating,
+        callable=ranked.callable,
         spread_compensation=ranked.spread_compensation,
         regime_fit=ranked.regime_fit,
         classification=ranked.classification,
@@ -130,13 +132,6 @@ def run_decision_pipeline(
         (
             FixedIncomeOpportunity,
             spread_compensation,
-        )
-
-    Example:
-
-        (
-            treasury,
-            "MODERATE",
         )
 
     The pipeline:
@@ -188,6 +183,7 @@ def run_decision_pipeline(
             risk.maturity_years,
             risk.stated_yield_percent,
             risk.rating,
+            risk.callable,
         ): risk
         for risk in risk_assessments
     }
@@ -200,6 +196,7 @@ def run_decision_pipeline(
             ranked_opportunity.maturity_years,
             ranked_opportunity.yield_percent,
             ranked_opportunity.rating,
+            ranked_opportunity.callable,
         )
 
         risk = risk_lookup[key]
