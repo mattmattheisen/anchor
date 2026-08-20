@@ -48,6 +48,7 @@ class RankedOpportunity:
     maturity_years: float
     yield_percent: float
     rating: str | None
+    callable: bool
 
     classification: str
     regime_fit: str
@@ -101,7 +102,8 @@ def rank_opportunities(
     Ties are broken by:
         1. Higher yield
         2. Shorter maturity
-        3. Security type alphabetically
+        3. Non-callable before callable
+        4. Security type alphabetically
 
     This keeps the ranking deterministic.
     """
@@ -120,6 +122,7 @@ def rank_opportunities(
             -item[0],
             -item[1].yield_percent,
             item[1].maturity_years,
+            item[1].callable,
             item[1].security_type,
         )
     )
@@ -137,6 +140,7 @@ def rank_opportunities(
                 maturity_years=assessment.maturity_years,
                 yield_percent=assessment.yield_percent,
                 rating=assessment.rating,
+                callable=assessment.callable,
                 classification=assessment.classification,
                 regime_fit=assessment.regime_fit,
                 spread_compensation=assessment.spread_compensation,
