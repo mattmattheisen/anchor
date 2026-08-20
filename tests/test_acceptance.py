@@ -301,3 +301,167 @@ def test_acceptance_output_preserves_public_contract():
         "rationale",
         "cautions",
     }
+    def make_adverse_regime():
+    """
+    Construct an adverse fixed-income regime characterized
+    by inflation pressure, rising real rates and term
+    premium, and stressed credit conditions.
+
+    Anchor should respond with a materially more defensive
+    portfolio posture.
+    """
+
+    return RegimeAssessment(
+        policy="RESTRICTIVE",
+        growth="WEAKENING",
+        inflation="PRESSURE",
+        real_rates="PRESSURE",
+        term_premium="RISING",
+        credit="STRESSED",
+        dominant_driver="INFLATION",
+        confidence="HIGH",
+    )
+
+
+def test_adverse_regime_runs_end_to_end():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert isinstance(result, dict)
+
+    encoded = json.dumps(result)
+
+    assert isinstance(encoded, str)
+
+
+def test_adverse_regime_produces_defensive_posture():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert result["portfolio_posture"] == {
+        "duration": "SHORT",
+        "credit": "DEFENSIVE",
+        "inflation": "HEDGE",
+        "liquidity": "ELEVATED",
+    }
+
+
+def test_adverse_regime_prefers_inflation_protection():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert (
+        "TIPS"
+        in result["preferred_exposures"]
+    )
+
+
+def test_adverse_regime_prefers_high_quality_government():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert (
+        "HIGH_QUALITY_GOVERNMENT"
+        in result["preferred_exposures"]
+    )
+
+
+def test_adverse_regime_limits_long_duration_nominals():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert (
+        "LONG_DURATION_NOMINAL_BONDS"
+        in result["exposures_to_limit"]
+    )
+
+
+def test_adverse_regime_limits_lower_quality_credit():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert (
+        "LOWER_QUALITY_CREDIT"
+        in result["exposures_to_limit"]
+    )
+
+
+def test_adverse_regime_changes_posture_from_neutral():
+    neutral_result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_neutral_regime(),
+    )
+
+    adverse_result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    assert (
+        neutral_result["portfolio_posture"]
+        != adverse_result["portfolio_posture"]
+    )
+
+
+def test_adverse_regime_preserves_security_risk_logic():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+        max_selections=5,
+    )
+
+    corporate_results = [
+        item
+        for item in result["selected_opportunities"]
+        if (
+            item["security_type"] == "CORPORATE"
+            and item["maturity_years"] == 5.0
+        )
+    ]
+
+    non_callable = next(
+        item
+        for item in corporate_results
+        if item["callable"] is False
+    )
+
+    callable_bond = next(
+        item
+        for item in corporate_results
+        if item["callable"] is True
+    )
+
+    assert (
+        non_callable["total_risk_penalty_bps"]
+        < callable_bond["total_risk_penalty_bps"]
+    )
+
+    assert (
+        non_callable["risk_adjusted_yield_percent"]
+        > callable_bond["risk_adjusted_yield_percent"]
+    )
+
+
+def test_adverse_regime_output_remains_json_serializable():
+    result = run_anchor(
+        opportunities=make_realistic_opportunity_set(),
+        regime=make_adverse_regime(),
+    )
+
+    encoded = json.dumps(result)
+
+    decoded = json.loads(encoded)
+
+    assert decoded == result
