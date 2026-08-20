@@ -101,12 +101,21 @@ def test_pipeline_ranks_multiple_securities():
 
     assert len(result.opportunities) == 3
 
-    assert result.opportunities[0].security_type == "TREASURY"
-    assert result.opportunities[0].maturity_years == 2.0
+    assert result.opportunities[0].security_type == "CORPORATE"
+    assert result.opportunities[0].maturity_years == 5.0
+    assert result.opportunities[0].ranking_score == 33.0
 
-    assert result.top_security_type == "TREASURY"
-    assert result.top_maturity_years == 2.0
-    assert result.top_classification == "FAVORABLE"
+    assert result.opportunities[1].security_type == "TREASURY"
+    assert result.opportunities[1].maturity_years == 2.0
+    assert result.opportunities[1].ranking_score == 28.0
+
+    assert result.opportunities[2].security_type == "TREASURY"
+    assert result.opportunities[2].maturity_years == 30.0
+    assert result.opportunities[2].classification == "AVOID"
+
+    assert result.top_security_type == "CORPORATE"
+    assert result.top_maturity_years == 5.0
+    assert result.top_classification == "ATTRACTIVE"
 
 
 def test_pipeline_preserves_risk_adjusted_yield():
