@@ -321,3 +321,42 @@ def test_pipeline_explanations_survive_integration():
 
     assert "TREASURY" in explanation
     assert "FAVORABLE" in explanation
+    def test_identical_bonds_with_different_callability_keep_separate_risk():
+    non_callable = FixedIncomeOpportunity(
+        security_type="CORPORATE",
+        maturity_years=5.0,
+        yield_percent=5.30,
+        rating="A",
+        callable=False,
+    )
+
+    callable_bond = FixedIncomeOpportunity(
+        security_type="CORPORATE",
+        maturity_years=5.0,
+        yield_percent=5.30,
+        rating="A",
+        callable=True,
+    )
+
+    regime = make_regime()
+
+    result = run_decision_pipeline(
+        opportunities=[
+            (non_callable, "HIGH"),
+            (callable_bond, "HIGH"),
+        ],
+        regime=regime,
+    )
+
+    adjusted_yields = sorted(
+        item.risk_adjusted_yield_percent
+        for item in result.opportunities
+    )
+
+    penalties = sorted(
+        item.total_risk_penalty_bps
+        for item in result.opportunities
+    )
+
+    assert adjusted_yields == [4.35, 4.65]
+    assert penalties == [65.0, 95.0]
