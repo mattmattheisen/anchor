@@ -25,6 +25,8 @@ class OpportunityAssessment:
 
     explanation: str
 
+    callable: bool = False
+
 
 def classify_regime_fit(
     opportunity: FixedIncomeOpportunity,
@@ -162,4 +164,5 @@ def assess_opportunity(
         regime_fit=regime_fit,
         classification=classification,
         explanation=explanation,
+        callable=opportunity.callable,
     )
