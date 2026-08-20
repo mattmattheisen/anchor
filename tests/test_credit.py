@@ -75,7 +75,7 @@ def test_negative_spread_is_unfavorable():
     assert classify_spread_compensation(spread) == "UNFAVORABLE"
 
 
-def test_missing_treasury_maturity_rejected():
+def test_interpolated_treasury_maturity():
     opportunity = FixedIncomeOpportunity(
         security_type="CORPORATE",
         maturity_years=7.0,
@@ -83,9 +83,52 @@ def test_missing_treasury_maturity_rejected():
         rating="A",
     )
 
+    spread = spread_to_treasury_bps(
+        opportunity,
+        sample_treasury_curve(),
+    )
+
+    assert spread == 55.86
+
+
+def test_interpolated_treasury_yield():
+    result = treasury_yield_for_maturity(
+        sample_treasury_curve(),
+        7.0,
+    )
+
+    assert result == 4.5414
+
+
+def test_below_treasury_curve_rejected():
+    opportunity = FixedIncomeOpportunity(
+        security_type="CORPORATE",
+        maturity_years=1.0,
+        yield_percent=4.50,
+        rating="A",
+    )
+
     with pytest.raises(
         ValueError,
-        match="Treasury maturity 7.0 years was not found",
+        match="below the available Treasury curve",
+    ):
+        spread_to_treasury_bps(
+            opportunity,
+            sample_treasury_curve(),
+        )
+
+
+def test_above_treasury_curve_rejected():
+    opportunity = FixedIncomeOpportunity(
+        security_type="CORPORATE",
+        maturity_years=40.0,
+        yield_percent=6.00,
+        rating="A",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="above the available Treasury curve",
     ):
         spread_to_treasury_bps(
             opportunity,
@@ -111,5 +154,6 @@ def test_full_opportunity_comparison():
     assert result["maturity_years"] == 5.0
     assert result["yield_percent"] == 5.300
     assert result["rating"] == "A"
+    assert result["treasury_yield_percent"] == 4.433
     assert result["spread_to_treasury_bps"] == 86.7
     assert result["spread_compensation"] == "MEANINGFUL"
