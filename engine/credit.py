@@ -2,13 +2,14 @@
 Credit-spread and relative-value analytics for Anchor.
 
 This module compares non-Treasury fixed-income yields
-with matched Treasury yields to estimate incremental
-compensation for credit and structure risk.
+with maturity-matched Treasury yields to estimate
+incremental compensation for credit and structure risk.
 """
 
 from typing import Iterable
 
 from engine.models import FixedIncomeOpportunity, TreasuryPoint
+from engine.curve import interpolated_yield
 
 
 def treasury_yield_for_maturity(
@@ -16,17 +17,19 @@ def treasury_yield_for_maturity(
     maturity_years: float,
 ) -> float:
     """
-    Return the Treasury yield matching a requested maturity.
+    Return the Treasury yield for a requested maturity.
+
+    Exact curve points are returned directly. Maturities
+    between observed Treasury points are estimated using
+    linear interpolation.
 
     Raises:
-        ValueError if the maturity is not present.
+        ValueError if the maturity falls outside the
+        available Treasury curve.
     """
-    for point in treasury_curve:
-        if point.maturity_years == maturity_years:
-            return point.yield_percent
-
-    raise ValueError(
-        f"Treasury maturity {maturity_years} years was not found."
+    return interpolated_yield(
+        treasury_curve,
+        maturity_years,
     )
 
 
@@ -83,6 +86,11 @@ def compare_opportunity_to_treasury(
     Return Anchor's basic relative-value comparison
     for a fixed-income opportunity.
     """
+    treasury_yield = treasury_yield_for_maturity(
+        treasury_curve,
+        opportunity.maturity_years,
+    )
+
     spread = spread_to_treasury_bps(
         opportunity,
         treasury_curve,
@@ -93,6 +101,7 @@ def compare_opportunity_to_treasury(
         "maturity_years": opportunity.maturity_years,
         "yield_percent": opportunity.yield_percent,
         "rating": opportunity.rating,
+        "treasury_yield_percent": treasury_yield,
         "spread_to_treasury_bps": spread,
         "spread_compensation": classify_spread_compensation(spread),
     }
