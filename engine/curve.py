@@ -108,6 +108,53 @@ def classify_curve_shape(
 
     if two_ten < 0 and two_thirty < 0:
         return "INVERTED"
+    def interpolated_yield(
+    points: Iterable[TreasuryPoint],
+    maturity_years: float,
+) -> float:
+    """
+    Estimate the Treasury yield for a maturity that falls
+    between two observed curve points using linear interpolation.
+
+    Raises:
+        ValueError if the requested maturity falls outside
+        the available Treasury curve.
+    """
+    sorted_points = sort_curve(points)
+
+    if not sorted_points:
+        raise ValueError("Treasury curve is empty.")
+
+    if maturity_years < sorted_points[0].maturity_years:
+        raise ValueError(
+            "Requested maturity is below the available Treasury curve."
+        )
+
+    if maturity_years > sorted_points[-1].maturity_years:
+        raise ValueError(
+            "Requested maturity is above the available Treasury curve."
+        )
+
+    for point in sorted_points:
+        if point.maturity_years == maturity_years:
+            return point.yield_percent
+
+    for left, right in zip(sorted_points, sorted_points[1:]):
+        if left.maturity_years < maturity_years < right.maturity_years:
+            maturity_range = right.maturity_years - left.maturity_years
+            maturity_fraction = (
+                maturity_years - left.maturity_years
+            ) / maturity_range
+
+            interpolated = left.yield_percent + maturity_fraction * (
+                right.yield_percent - left.yield_percent
+            )
+
+            return round(interpolated, 4)
+
+    raise ValueError(
+        f"Unable to interpolate Treasury maturity {maturity_years} years."
+    )
 
     if two_ten > 50 and two_thirty > 50:
         return "STEEP"
