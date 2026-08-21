@@ -32,6 +32,20 @@ class CreditSpreadPoint:
 
 @dataclass
 class FixedIncomeOpportunity:
+    """
+    Fixed-income opportunity evaluated by Anchor.
+
+    Current supported security types:
+
+        TREASURY
+        TIPS
+        CORPORATE
+        CD
+
+    Enforcement of supported security types occurs in
+    Anchor's validation layer rather than in this model.
+    """
+
     security_type: str
     maturity_years: float
     yield_percent: float
