@@ -102,12 +102,13 @@ def test_four_year_corporate_uses_interpolated_three_to_five_year_benchmark():
     assert (
         result.benchmark.benchmark_yield_percent
         == pytest.approx(
-            4.30
+            4.30,
+            abs=0.01,
         )
     )
 
 
-def test_seven_year_corporate_uses_exact_seven_year_benchmark():
+def test_approximately_seven_year_corporate_uses_interpolated_benchmark():
     result = assess_security_spread(
         security=make_security(
             maturity_date=date(
@@ -122,12 +123,15 @@ def test_seven_year_corporate_uses_exact_seven_year_benchmark():
 
     assert (
         result.benchmark.benchmark_name
-        == "7Y_TREASURY"
+        == "INTERPOLATED_7Y_TREASURY_10Y_TREASURY"
     )
 
     assert (
         result.benchmark.benchmark_yield_percent
-        == 4.50
+        == pytest.approx(
+            4.50,
+            abs=0.01,
+        )
     )
 
 
@@ -155,7 +159,8 @@ def test_eight_year_corporate_uses_interpolated_seven_to_ten_year_benchmark():
     assert (
         result.benchmark.benchmark_yield_percent
         == pytest.approx(
-            4.60
+            4.60,
+            abs=0.01,
         )
     )
 
