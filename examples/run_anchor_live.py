@@ -21,10 +21,16 @@ and:
       ↓
     Anchor
 
-The decision engine itself remains unchanged.
+The runner supports three output modes:
 
-The runner prints a concise human-readable summary first,
-followed by the complete JSON output for auditability.
+    default
+        Human-readable summary followed by full JSON.
+
+    --summary-only
+        Human-readable summary only.
+
+    --json-only
+        Full JSON only.
 """
 
 import argparse
@@ -319,12 +325,25 @@ def main():
         ),
     )
 
-    parser.add_argument(
+    output_group = (
+        parser.add_mutually_exclusive_group()
+    )
+
+    output_group.add_argument(
         "--json-only",
         action="store_true",
         help=(
-            "Suppress the human-readable summary and print "
-            "only JSON."
+            "Suppress the human-readable summary and "
+            "print only JSON."
+        ),
+    )
+
+    output_group.add_argument(
+        "--summary-only",
+        action="store_true",
+        help=(
+            "Print only the human-readable Anchor summary "
+            "and suppress the full JSON output."
         ),
     )
 
@@ -372,22 +391,34 @@ def main():
         "decision": decision,
     }
 
-    if not args.json_only:
-        print_market_summary(
-            market_data
+    if args.json_only:
+        print(
+            json.dumps(
+                output,
+                indent=2,
+            )
         )
 
-        print_regime_summary(
-            regime
-        )
+        return
 
-        print_decision_summary(
-            decision
-        )
+    print_market_summary(
+        market_data
+    )
 
-        print()
-        print("FULL JSON OUTPUT")
-        print("----------------")
+    print_regime_summary(
+        regime
+    )
+
+    print_decision_summary(
+        decision
+    )
+
+    if args.summary_only:
+        return
+
+    print()
+    print("FULL JSON OUTPUT")
+    print("----------------")
 
     print(
         json.dumps(
