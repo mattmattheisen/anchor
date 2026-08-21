@@ -52,14 +52,20 @@ def run_anchor(
 
     Raises
     ------
+    TypeError
+        If max_selections is not a true integer.
+
     ValueError
-        If the supplied opportunities or regime fail
-        Anchor's input validation rules.
+        If max_selections is less than 1 or if the supplied
+        opportunities or regime fail Anchor's input
+        validation rules.
 
     Flow
     ----
 
         External structured inputs
+                ↓
+        Public argument validation
                 ↓
         Input validation
                 ↓
@@ -69,6 +75,21 @@ def run_anchor(
                 ↓
         Serialized decision report
     """
+
+    if isinstance(max_selections, bool):
+        raise TypeError(
+            "max_selections must be an integer."
+        )
+
+    if not isinstance(max_selections, int):
+        raise TypeError(
+            "max_selections must be an integer."
+        )
+
+    if max_selections < 1:
+        raise ValueError(
+            "max_selections must be at least 1."
+        )
 
     validated_opportunities = validate_anchor_inputs(
         opportunities=opportunities,
