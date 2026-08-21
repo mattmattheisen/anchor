@@ -1,0 +1,6 @@
+security_type,maturity_years,yield_percent,rating,callable,spread_compensation
+TREASURY,2,4.20,,,MODERATE
+TREASURY,5,4.35,,,MODERATE
+TIPS,5,2.10,,,MODERATE
+CORPORATE,5,5.30,A,FALSE,HIGH
+CORPORATE,5,5.30,A,TRUE,HIGH
