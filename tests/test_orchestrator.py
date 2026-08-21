@@ -336,6 +336,7 @@ def test_orchestrator_output_contains_expected_sections():
     )
 
     assert set(result.keys()) == {
+        "schema_version",
         "headline",
         "recommendation",
         "portfolio_posture",
