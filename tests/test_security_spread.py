@@ -18,12 +18,20 @@ AS_OF_DATE = date(
 
 
 def make_market_data(
+    treasury_1y=4.10,
     treasury_2y=4.20,
+    treasury_3y=4.25,
+    treasury_5y=4.35,
+    treasury_7y=4.50,
     treasury_10y=4.65,
 ):
     return MarketDataSnapshot(
         fed_funds_rate=3.75,
+        treasury_1y=treasury_1y,
         treasury_2y=treasury_2y,
+        treasury_3y=treasury_3y,
+        treasury_5y=treasury_5y,
+        treasury_7y=treasury_7y,
         treasury_10y=treasury_10y,
         real_yield_10y=2.25,
         breakeven_10y=2.30,
@@ -73,7 +81,7 @@ def test_assessment_returns_expected_type():
     )
 
 
-def test_short_corporate_uses_two_year_benchmark():
+def test_four_year_corporate_uses_interpolated_three_to_five_year_benchmark():
     result = assess_security_spread(
         security=make_security(
             maturity_date=date(
@@ -88,16 +96,18 @@ def test_short_corporate_uses_two_year_benchmark():
 
     assert (
         result.benchmark.benchmark_name
-        == "2Y_TREASURY"
+        == "INTERPOLATED_3Y_TREASURY_5Y_TREASURY"
     )
 
     assert (
         result.benchmark.benchmark_yield_percent
-        == 4.20
+        == pytest.approx(
+            4.30
+        )
     )
 
 
-def test_long_corporate_uses_ten_year_benchmark():
+def test_seven_year_corporate_uses_exact_seven_year_benchmark():
     result = assess_security_spread(
         security=make_security(
             maturity_date=date(
@@ -112,22 +122,52 @@ def test_long_corporate_uses_ten_year_benchmark():
 
     assert (
         result.benchmark.benchmark_name
-        == "10Y_TREASURY"
+        == "7Y_TREASURY"
     )
 
     assert (
         result.benchmark.benchmark_yield_percent
-        == 4.65
+        == 4.50
     )
 
 
-def test_corporate_spread_is_calculated():
+def test_eight_year_corporate_uses_interpolated_seven_to_ten_year_benchmark():
+    result = assess_security_spread(
+        security=make_security(
+            maturity_date=date(
+                2034,
+                8,
+                21,
+            ),
+        ),
+        market_data=make_market_data(
+            treasury_7y=4.50,
+            treasury_10y=4.80,
+        ),
+        as_of_date=AS_OF_DATE,
+    )
+
+    assert (
+        result.benchmark.benchmark_name
+        == "INTERPOLATED_7Y_TREASURY_10Y_TREASURY"
+    )
+
+    assert (
+        result.benchmark.benchmark_yield_percent
+        == pytest.approx(
+            4.60
+        )
+    )
+
+
+def test_corporate_spread_is_calculated_from_interpolated_curve():
     result = assess_security_spread(
         security=make_security(
             yield_to_maturity_percent=5.20,
         ),
         market_data=make_market_data(
-            treasury_2y=4.20,
+            treasury_3y=4.25,
+            treasury_5y=4.35,
         ),
         as_of_date=AS_OF_DATE,
     )
@@ -135,29 +175,31 @@ def test_corporate_spread_is_calculated():
     assert (
         result.spread.spread_bps
         == pytest.approx(
-            100.0
+            90.0,
+            abs=0.1,
         )
     )
 
 
-def test_corporate_compensation_is_derived():
+def test_corporate_compensation_is_derived_from_interpolated_spread():
     result = assess_security_spread(
         security=make_security(
             yield_to_maturity_percent=5.20,
         ),
         market_data=make_market_data(
-            treasury_2y=4.20,
+            treasury_3y=4.25,
+            treasury_5y=4.35,
         ),
         as_of_date=AS_OF_DATE,
     )
 
     assert (
         result.spread.compensation
-        == "MEANINGFUL"
+        == "MODERATE"
     )
 
 
-def test_cd_spread_is_calculated():
+def test_cd_spread_is_calculated_from_interpolated_curve():
     security = make_security(
         security_type="CD",
         yield_to_maturity_percent=4.95,
@@ -167,7 +209,8 @@ def test_cd_spread_is_calculated():
     result = assess_security_spread(
         security=security,
         market_data=make_market_data(
-            treasury_2y=4.20,
+            treasury_3y=4.25,
+            treasury_5y=4.35,
         ),
         as_of_date=AS_OF_DATE,
     )
@@ -175,13 +218,48 @@ def test_cd_spread_is_calculated():
     assert (
         result.spread.spread_bps
         == pytest.approx(
-            75.0
+            65.0,
+            abs=0.1,
         )
     )
 
     assert (
         result.spread.compensation
         == "MODERATE"
+    )
+
+
+def test_shorter_corporate_uses_interpolated_one_to_two_year_benchmark():
+    security = make_security(
+        maturity_date=date(
+            2028,
+            2,
+            21,
+        ),
+    )
+
+    result = assess_security_spread(
+        security=security,
+        market_data=make_market_data(
+            treasury_1y=4.00,
+            treasury_2y=4.20,
+        ),
+        as_of_date=AS_OF_DATE,
+    )
+
+    assert (
+        result.benchmark.benchmark_name
+        == "INTERPOLATED_1Y_TREASURY_2Y_TREASURY"
+    )
+
+    assert (
+        result.benchmark.benchmark_yield_percent
+        > 4.00
+    )
+
+    assert (
+        result.benchmark.benchmark_yield_percent
+        < 4.20
     )
 
 
@@ -267,6 +345,37 @@ def test_security_type_is_preserved():
     assert (
         result.security_type
         == "CORPORATE"
+    )
+
+
+def test_missing_three_year_point_interpolates_across_remaining_curve():
+    result = assess_security_spread(
+        security=make_security(
+            maturity_date=date(
+                2030,
+                8,
+                21,
+            ),
+        ),
+        market_data=make_market_data(
+            treasury_2y=4.20,
+            treasury_3y=None,
+            treasury_5y=4.40,
+        ),
+        as_of_date=AS_OF_DATE,
+    )
+
+    assert (
+        result.benchmark.benchmark_name
+        == "INTERPOLATED_2Y_TREASURY_5Y_TREASURY"
+    )
+
+    assert (
+        result.benchmark.benchmark_yield_percent
+        == pytest.approx(
+            4.3333333333,
+            abs=0.01,
+        )
     )
 
 
