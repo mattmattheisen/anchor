@@ -34,6 +34,15 @@ class MarketDataSnapshot:
     All yield and spread values are expressed in percentage
     points unless otherwise noted.
 
+    Treasury curve fields currently supported:
+
+        treasury_1y
+        treasury_2y
+        treasury_3y
+        treasury_5y
+        treasury_7y
+        treasury_10y
+
     Examples:
 
         treasury_2y = 4.25
@@ -62,8 +71,18 @@ class MarketDataSnapshot:
 
     credit_spread_ig_bps: float
 
+    treasury_1y: Optional[float] = None
+    treasury_3y: Optional[float] = None
+    treasury_5y: Optional[float] = None
+    treasury_7y: Optional[float] = None
+
     treasury_2y_change_bps: float = 0.0
     treasury_10y_change_bps: float = 0.0
+
+    treasury_1y_change_bps: Optional[float] = None
+    treasury_3y_change_bps: Optional[float] = None
+    treasury_5y_change_bps: Optional[float] = None
+    treasury_7y_change_bps: Optional[float] = None
 
     real_yield_10y_change_bps: float = 0.0
     breakeven_10y_change_bps: float = 0.0
@@ -103,6 +122,41 @@ def _validate_finite(
     ):
         raise ValueError(
             f"{field_name} must be finite."
+        )
+
+
+def _validate_optional_finite(
+    value: Optional[float],
+    field_name: str,
+) -> None:
+    """
+    Validate an optional numeric market observation.
+    """
+
+    if value is None:
+        return
+
+    _validate_finite(
+        value,
+        field_name,
+    )
+
+
+def _validate_nonnegative_optional(
+    value: Optional[float],
+    field_name: str,
+) -> None:
+    """
+    Require an optional market observation to be
+    nonnegative when supplied.
+    """
+
+    if value is None:
+        return
+
+    if value < 0:
+        raise ValueError(
+            f"{field_name} cannot be negative."
         )
 
 
@@ -160,19 +214,37 @@ def validate_market_data(
             field_name,
         )
 
-    if snapshot.unemployment_rate is not None:
-        _validate_finite(
-            snapshot.unemployment_rate,
-            "unemployment_rate",
-        )
+    optional_numeric_fields = {
+        "treasury_1y": snapshot.treasury_1y,
+        "treasury_3y": snapshot.treasury_3y,
+        "treasury_5y": snapshot.treasury_5y,
+        "treasury_7y": snapshot.treasury_7y,
+        "treasury_1y_change_bps": (
+            snapshot.treasury_1y_change_bps
+        ),
+        "treasury_3y_change_bps": (
+            snapshot.treasury_3y_change_bps
+        ),
+        "treasury_5y_change_bps": (
+            snapshot.treasury_5y_change_bps
+        ),
+        "treasury_7y_change_bps": (
+            snapshot.treasury_7y_change_bps
+        ),
+        "unemployment_rate": (
+            snapshot.unemployment_rate
+        ),
+        "unemployment_rate_change_pct": (
+            snapshot.unemployment_rate_change_pct
+        ),
+    }
 
-    if (
-        snapshot.unemployment_rate_change_pct
-        is not None
+    for field_name, value in (
+        optional_numeric_fields.items()
     ):
-        _validate_finite(
-            snapshot.unemployment_rate_change_pct,
-            "unemployment_rate_change_pct",
+        _validate_optional_finite(
+            value,
+            field_name,
         )
 
     if snapshot.fed_funds_rate < 0:
@@ -189,6 +261,26 @@ def validate_market_data(
         raise ValueError(
             "treasury_10y cannot be negative."
         )
+
+    _validate_nonnegative_optional(
+        snapshot.treasury_1y,
+        "treasury_1y",
+    )
+
+    _validate_nonnegative_optional(
+        snapshot.treasury_3y,
+        "treasury_3y",
+    )
+
+    _validate_nonnegative_optional(
+        snapshot.treasury_5y,
+        "treasury_5y",
+    )
+
+    _validate_nonnegative_optional(
+        snapshot.treasury_7y,
+        "treasury_7y",
+    )
 
     if snapshot.credit_spread_ig_bps < 0:
         raise ValueError(
@@ -222,8 +314,20 @@ def market_data_to_dict(
         "fed_funds_rate": (
             snapshot.fed_funds_rate
         ),
+        "treasury_1y": (
+            snapshot.treasury_1y
+        ),
         "treasury_2y": (
             snapshot.treasury_2y
+        ),
+        "treasury_3y": (
+            snapshot.treasury_3y
+        ),
+        "treasury_5y": (
+            snapshot.treasury_5y
+        ),
+        "treasury_7y": (
+            snapshot.treasury_7y
         ),
         "treasury_10y": (
             snapshot.treasury_10y
@@ -237,8 +341,20 @@ def market_data_to_dict(
         "credit_spread_ig_bps": (
             snapshot.credit_spread_ig_bps
         ),
+        "treasury_1y_change_bps": (
+            snapshot.treasury_1y_change_bps
+        ),
         "treasury_2y_change_bps": (
             snapshot.treasury_2y_change_bps
+        ),
+        "treasury_3y_change_bps": (
+            snapshot.treasury_3y_change_bps
+        ),
+        "treasury_5y_change_bps": (
+            snapshot.treasury_5y_change_bps
+        ),
+        "treasury_7y_change_bps": (
+            snapshot.treasury_7y_change_bps
         ),
         "treasury_10y_change_bps": (
             snapshot.treasury_10y_change_bps
