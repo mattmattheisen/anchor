@@ -313,6 +313,7 @@ def test_acceptance_output_preserves_public_contract():
     )
 
     assert set(result.keys()) == {
+        "schema_version",
         "headline",
         "recommendation",
         "portfolio_posture",
