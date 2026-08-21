@@ -59,6 +59,14 @@ def make_report():
     )
 
 
+def test_report_serialization_includes_schema_version():
+    result = serialize_decision_report(
+        make_report()
+    )
+
+    assert result["schema_version"] == "1.0"
+
+
 def test_serialize_opportunity_returns_dictionary():
     result = serialize_opportunity(
         make_opportunity()
