@@ -17,6 +17,18 @@ with:
 
 and sends both into Anchor's deterministic decision engine.
 
+The production runner also preserves the identity of the
+original market security so Anchor's ranked output can be
+traced back to:
+
+    CUSIP
+    issuer
+    maturity date
+    stated YTM
+    rating
+    callable status
+    source
+
 This is not a broker integration.
 
 The security CSV remains an explicit input file so that
@@ -224,11 +236,214 @@ def print_security_summary(
             )
 
 
-def print_decision_summary(
-    decision,
+def build_security_lookup(
+    imported_securities,
+    as_of_date,
+):
+    """
+    Build a lookup table linking Anchor opportunities back
+    to their original production SecurityData records.
+
+    The lookup key uses the fields currently retained by
+    FixedIncomeOpportunity.
+
+    A list is stored for each key because two different
+    securities may legitimately have identical analytical
+    characteristics.
+    """
+
+    lookup = {}
+
+    for security, spread in imported_securities:
+        opportunity, normalized_spread = (
+            security_data_to_opportunity(
+                security=security,
+                spread_compensation=spread,
+                as_of_date=as_of_date,
+            )
+        )
+
+        key = (
+            opportunity.security_type,
+            round(
+                opportunity.maturity_years,
+                8,
+            ),
+            round(
+                opportunity.yield_percent,
+                8,
+            ),
+            opportunity.rating,
+            opportunity.callable,
+            normalized_spread,
+        )
+
+        lookup.setdefault(
+            key,
+            [],
+        ).append(
+            security
+        )
+
+    return lookup
+
+
+def find_source_security(
+    selected_opportunity,
+    imported_securities,
+    as_of_date,
+):
+    """
+    Match one serialized Anchor opportunity back to the
+    original SecurityData record.
+
+    Matching uses the analytical fields preserved by
+    Anchor's current FixedIncomeOpportunity model.
+
+    If more than one production security has identical
+    analytical characteristics, the first unmatched-like
+    record is returned for display. Full production input
+    remains available in JSON for auditability.
+    """
+
+    selected_type = (
+        selected_opportunity[
+            "security_type"
+        ]
+    )
+
+    selected_maturity = (
+        selected_opportunity[
+            "maturity_years"
+        ]
+    )
+
+    selected_yield = (
+        selected_opportunity[
+            "stated_yield_percent"
+        ]
+    )
+
+    for security, spread in imported_securities:
+        opportunity, _ = (
+            security_data_to_opportunity(
+                security=security,
+                spread_compensation=spread,
+                as_of_date=as_of_date,
+            )
+        )
+
+        if (
+            opportunity.security_type
+            == selected_type
+            and abs(
+                opportunity.maturity_years
+                - selected_maturity
+            ) < 0.0001
+            and abs(
+                opportunity.yield_percent
+                - selected_yield
+            ) < 0.0001
+            and opportunity.rating
+            == selected_opportunity.get(
+                "rating"
+            )
+            and opportunity.callable
+            == selected_opportunity.get(
+                "callable",
+                False,
+            )
+        ):
+            return security
+
+    return None
+
+
+def print_source_security(
+    security,
 ) -> None:
     """
-    Print Anchor's primary decision output.
+    Print the identity of one production security.
+    """
+
+    if security is None:
+        print(
+            "   Security Identity: "
+            "Unable to match source record."
+        )
+
+        return
+
+    print(
+        f"   CUSIP: "
+        f"{security.cusip or 'N/A'}"
+    )
+
+    print(
+        f"   Issuer: "
+        f"{security.issuer or 'N/A'}"
+    )
+
+    print(
+        f"   Maturity Date: "
+        f"{security.maturity_date.isoformat()}"
+    )
+
+    print(
+        f"   Market YTM: "
+        f"{security.yield_to_maturity_percent:.2f}%"
+    )
+
+    if security.coupon_percent is not None:
+        print(
+            f"   Coupon: "
+            f"{security.coupon_percent:.2f}%"
+        )
+
+    if security.price is not None:
+        print(
+            f"   Price: "
+            f"{security.price:.2f}"
+        )
+
+    if security.rating is not None:
+        print(
+            f"   Rating: "
+            f"{security.rating}"
+        )
+
+    print(
+        f"   Callable: "
+        f"{'YES' if security.callable else 'NO'}"
+    )
+
+    if security.call_date is not None:
+        print(
+            f"   Call Date: "
+            f"{security.call_date.isoformat()}"
+        )
+
+    if security.minimum_quantity is not None:
+        print(
+            f"   Minimum Quantity: "
+            f"{security.minimum_quantity:.0f}"
+        )
+
+    if security.source is not None:
+        print(
+            f"   Source: "
+            f"{security.source}"
+        )
+
+
+def print_decision_summary(
+    decision,
+    imported_securities,
+    as_of_date,
+) -> None:
+    """
+    Print Anchor's primary decision output together with
+    the identity of the original production securities.
     """
 
     print()
@@ -244,40 +459,93 @@ def print_decision_summary(
         "top_opportunity"
     ]
 
+    selected = decision[
+        "selected_opportunities"
+    ]
+
     if top is None:
         print(
             "Top Opportunity: NONE"
         )
 
     else:
-        print(
-            f"Top Opportunity: "
-            f"{top['maturity_years']:.2f}-year "
-            f"{top['security_type']}"
-        )
+        print()
+        print("TOP-RANKED SECURITY")
+        print("-------------------")
 
-        print(
-            f"Classification: "
-            f"{top['classification']}"
-        )
+        if selected:
+            top_selected = selected[0]
+
+            source_security = (
+                find_source_security(
+                    selected_opportunity=top_selected,
+                    imported_securities=(
+                        imported_securities
+                    ),
+                    as_of_date=as_of_date,
+                )
+            )
+
+            print_source_security(
+                source_security
+            )
+
+            print(
+                f"   Anchor Classification: "
+                f"{top_selected['classification']}"
+            )
+
+            print(
+                f"   Stated Yield: "
+                f"{top_selected['stated_yield_percent']:.2f}%"
+            )
+
+            print(
+                f"   Risk Penalty: "
+                f"{top_selected['total_risk_penalty_bps']:.0f} bps"
+            )
+
+            print(
+                f"   Risk-Adjusted Yield: "
+                f"{top_selected['risk_adjusted_yield_percent']:.2f}%"
+            )
+
+            print(
+                f"   Ranking Score: "
+                f"{top_selected['ranking_score']:.2f}"
+            )
 
     print()
     print("SELECTED OPPORTUNITIES")
     print("----------------------")
 
     for index, opportunity in enumerate(
-        decision["selected_opportunities"],
+        selected,
         start=1,
     ):
+        source_security = (
+            find_source_security(
+                selected_opportunity=opportunity,
+                imported_securities=(
+                    imported_securities
+                ),
+                as_of_date=as_of_date,
+            )
+        )
+
+        print()
         print(
             f"{index}. "
-            f"{opportunity['maturity_years']:.2f}-year "
             f"{opportunity['security_type']}"
         )
 
+        print_source_security(
+            source_security
+        )
+
         print(
-            f"   Stated Yield: "
-            f"{opportunity['stated_yield_percent']:.2f}%"
+            f"   Classification: "
+            f"{opportunity['classification']}"
         )
 
         print(
@@ -291,8 +559,8 @@ def print_decision_summary(
         )
 
         print(
-            f"   Classification: "
-            f"{opportunity['classification']}"
+            f"   Ranking Score: "
+            f"{opportunity['ranking_score']:.2f}"
         )
 
     posture = decision[
@@ -494,7 +762,11 @@ def main():
     )
 
     print_decision_summary(
-        decision
+        decision=decision,
+        imported_securities=(
+            imported_securities
+        ),
+        as_of_date=as_of_date,
     )
 
     if args.summary_only:
