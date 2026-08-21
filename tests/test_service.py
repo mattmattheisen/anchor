@@ -310,7 +310,7 @@ def test_run_anchor_rejects_invalid_max_selections():
 def test_run_anchor_empty_input_raises_clear_error():
     with pytest.raises(
         ValueError,
-        match="Cannot summarize an empty pipeline result",
+        match="Anchor requires at least one opportunity",
     ):
         run_anchor(
             opportunities=[],
