@@ -136,15 +136,8 @@ def security_data_to_opportunity(
         )
     )
 
-    anchor_security_type = (
-        security.security_type
-    )
-
-    if anchor_security_type == "CD":
-        anchor_security_type = "CORPORATE"
-
     opportunity = FixedIncomeOpportunity(
-        security_type=anchor_security_type,
+        security_type=security.security_type,
         maturity_years=maturity_years,
         yield_percent=(
             security.yield_to_maturity_percent
