@@ -1,26 +1,20 @@
 """
 Public service interface for Anchor.
 
-This module provides the primary programmatic entry point
-into Anchor's deterministic fixed-income decision system.
+This module provides the primary entry point for running
+Anchor's deterministic fixed-income decision process.
 
-External applications should be able to provide:
-
-1. a regime assessment,
-2. fixed-income opportunities,
-3. relative-value compensation assessments,
-
-and receive Anchor's final JSON-compatible decision output.
-
-No independent analytical logic belongs in this module.
+External callers should use run_anchor() rather than
+calling the internal analytical layers individually.
 """
 
 from typing import Any, Dict, Iterable, Tuple
 
 from engine.models import FixedIncomeOpportunity
 from engine.orchestrator import run_decision_process
-from engine.pipeline import run_decision_pipeline
+from engine.pipeline import run_pipeline
 from engine.regime import RegimeAssessment
+from engine.validation import validate_anchor_inputs
 
 
 def run_anchor(
@@ -31,12 +25,12 @@ def run_anchor(
     max_selections: int = 3,
 ) -> Dict[str, Any]:
     """
-    Run Anchor's complete fixed-income decision process.
+    Run Anchor's complete deterministic decision process.
 
     Parameters
     ----------
     opportunities:
-        Iterable of tuples containing:
+        Iterable containing tuples of:
 
             (
                 FixedIncomeOpportunity,
@@ -44,33 +38,45 @@ def run_anchor(
             )
 
     regime:
-        Anchor's completed deterministic regime assessment.
+        Completed RegimeAssessment describing the current
+        fixed-income environment.
 
     max_selections:
-        Maximum number of ranked securities to include
+        Maximum number of ranked opportunities to include
         in the final portfolio recommendation.
 
     Returns
     -------
     dict
-        JSON-compatible Anchor decision output.
+        JSON-compatible serialized Anchor decision report.
+
+    Raises
+    ------
+    ValueError
+        If the supplied opportunities or regime fail
+        Anchor's input validation rules.
 
     Flow
     ----
 
-        FixedIncomeOpportunity inputs
+        External structured inputs
                 ↓
-        Fixed-Income Decision Pipeline
+        Input validation
                 ↓
-        PipelineResult
+        Fixed-income pipeline
                 ↓
-        Decision Orchestrator
+        Decision orchestration
                 ↓
-        JSON-compatible decision output
+        Serialized decision report
     """
 
-    pipeline = run_decision_pipeline(
+    validated_opportunities = validate_anchor_inputs(
         opportunities=opportunities,
+        regime=regime,
+    )
+
+    pipeline = run_pipeline(
+        opportunities=validated_opportunities,
         regime=regime,
     )
 
