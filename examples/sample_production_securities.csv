@@ -1,0 +1,7 @@
+cusip,issuer,security_type,coupon_percent,maturity_date,yield_to_maturity_percent,price,rating,callable,call_date,minimum_quantity,source,description,spread_compensation
+91282ABC1,U.S. Treasury,TREASURY,4.00,2030-08-21,4.25,99.50,,FALSE,,1000,SCHWAB,U.S. Treasury Note,MODERATE
+91282XYZ9,U.S. Treasury,TREASURY,4.25,2033-08-21,4.45,100.10,,FALSE,,1000,SCHWAB,U.S. Treasury Note,MODERATE
+912810AA1,U.S. Treasury,TIPS,1.75,2031-07-15,2.15,98.80,,FALSE,,1000,SCHWAB,U.S. Treasury TIPS,MODERATE
+123456AB7,Example Corporation,CORPORATE,5.00,2031-06-15,5.35,101.20,A,FALSE,,5000,SCHWAB,Example Corp Senior Note,HIGH
+987654CD3,Example Corporation,CORPORATE,5.50,2032-09-01,5.65,100.10,A,TRUE,2029-09-01,5000,SCHWAB,Example Corp Callable Note,HIGH
+246810EF5,Example Bank,CD,4.80,2029-03-15,4.80,100.00,,FALSE,,1000,SCHWAB,Example Bank CD,MODERATE
