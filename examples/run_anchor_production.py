@@ -13,11 +13,15 @@ with:
         ↓
     SecurityData
         ↓
+    automatic Treasury benchmark selection
+        ↓
+    automatic spread-compensation assessment
+        ↓
     FixedIncomeOpportunity
 
 and sends both into Anchor's deterministic decision engine.
 
-The production runner also preserves the identity of the
+The production runner preserves the identity of the
 original market security so Anchor's ranked output can be
 traced back to:
 
@@ -29,11 +33,10 @@ traced back to:
     callable status
     source
 
-This is not a broker integration.
+Human-supplied spread-compensation labels from the CSV are
+not used by the production decision path.
 
-The security CSV remains an explicit input file so that
-market-security data can be inspected and audited before
-Anchor evaluates it.
+This is not a broker integration.
 """
 
 import argparse
@@ -59,16 +62,15 @@ from engine.security_data import (
 from engine.security_import import (
     load_security_data_from_csv,
 )
+from engine.security_spread import (
+    assess_security_spread,
+)
 from engine.service import run_anchor
 
 
 def regime_to_dict(
     regime,
 ):
-    """
-    Convert RegimeAssessment into a plain dictionary.
-    """
-
     return {
         "policy": regime.policy,
         "growth": regime.growth,
@@ -84,10 +86,6 @@ def regime_to_dict(
 def print_market_summary(
     market_data,
 ) -> None:
-    """
-    Print the live market environment.
-    """
-
     print()
     print("LIVE MARKET SUMMARY")
     print("-------------------")
@@ -132,10 +130,6 @@ def print_market_summary(
 def print_regime_summary(
     regime,
 ) -> None:
-    """
-    Print Anchor's deterministic regime assessment.
-    """
-
     print()
     print("ANCHOR REGIME")
     print("-------------")
@@ -175,22 +169,83 @@ def print_regime_summary(
     )
 
 
-def print_security_summary(
+def build_production_inputs(
     imported_securities,
-) -> None:
+    market_data,
+    as_of_date,
+):
     """
-    Print the production securities supplied to Anchor.
+    Build Anchor opportunities and spread metadata from
+    production SecurityData.
+
+    CSV spread labels are intentionally ignored here.
     """
 
+    opportunities = []
+    spread_metadata = []
+
+    for security, _csv_spread in (
+        imported_securities
+    ):
+        spread_assessment = (
+            assess_security_spread(
+                security=security,
+                market_data=market_data,
+                as_of_date=as_of_date,
+            )
+        )
+
+        compensation = (
+            spread_assessment
+            .spread
+            .compensation
+        )
+
+        opportunity = (
+            security_data_to_opportunity(
+                security=security,
+                spread_compensation=(
+                    compensation
+                ),
+                as_of_date=as_of_date,
+            )
+        )
+
+        opportunities.append(
+            opportunity
+        )
+
+        spread_metadata.append(
+            {
+                "security": security,
+                "assessment": spread_assessment,
+            }
+        )
+
+    return (
+        opportunities,
+        spread_metadata,
+    )
+
+
+def print_security_summary(
+    spread_metadata,
+) -> None:
     print()
     print("SECURITIES LOADED")
     print("-----------------")
 
     for index, item in enumerate(
-        imported_securities,
+        spread_metadata,
         start=1,
     ):
-        security, spread = item
+        security = item[
+            "security"
+        ]
+
+        assessment = item[
+            "assessment"
+        ]
 
         identifier = (
             security.cusip
@@ -213,8 +268,23 @@ def print_security_summary(
             f"   Maturity: "
             f"{security.maturity_date.isoformat()} | "
             f"YTM: "
-            f"{security.yield_to_maturity_percent:.2f}% | "
-            f"Spread Compensation: {spread}"
+            f"{security.yield_to_maturity_percent:.2f}%"
+        )
+
+        print(
+            f"   Benchmark: "
+            f"{assessment.benchmark.benchmark_name} | "
+            f"{assessment.benchmark.benchmark_yield_percent:.2f}%"
+        )
+
+        print(
+            f"   Calculated Spread: "
+            f"{assessment.spread.spread_bps:.0f} bps"
+        )
+
+        print(
+            f"   Spread Compensation: "
+            f"{assessment.spread.compensation}"
         )
 
         if security.rating is not None:
@@ -236,76 +306,11 @@ def print_security_summary(
             )
 
 
-def build_security_lookup(
-    imported_securities,
-    as_of_date,
-):
-    """
-    Build a lookup table linking Anchor opportunities back
-    to their original production SecurityData records.
-
-    The lookup key uses the fields currently retained by
-    FixedIncomeOpportunity.
-
-    A list is stored for each key because two different
-    securities may legitimately have identical analytical
-    characteristics.
-    """
-
-    lookup = {}
-
-    for security, spread in imported_securities:
-        opportunity, normalized_spread = (
-            security_data_to_opportunity(
-                security=security,
-                spread_compensation=spread,
-                as_of_date=as_of_date,
-            )
-        )
-
-        key = (
-            opportunity.security_type,
-            round(
-                opportunity.maturity_years,
-                8,
-            ),
-            round(
-                opportunity.yield_percent,
-                8,
-            ),
-            opportunity.rating,
-            opportunity.callable,
-            normalized_spread,
-        )
-
-        lookup.setdefault(
-            key,
-            [],
-        ).append(
-            security
-        )
-
-    return lookup
-
-
 def find_source_security(
     selected_opportunity,
-    imported_securities,
+    spread_metadata,
     as_of_date,
 ):
-    """
-    Match one serialized Anchor opportunity back to the
-    original SecurityData record.
-
-    Matching uses the analytical fields preserved by
-    Anchor's current FixedIncomeOpportunity model.
-
-    If more than one production security has identical
-    analytical characteristics, the first unmatched-like
-    record is returned for display. Full production input
-    remains available in JSON for auditability.
-    """
-
     selected_type = (
         selected_opportunity[
             "security_type"
@@ -324,11 +329,25 @@ def find_source_security(
         ]
     )
 
-    for security, spread in imported_securities:
+    for item in spread_metadata:
+        security = item[
+            "security"
+        ]
+
+        compensation = (
+            item[
+                "assessment"
+            ]
+            .spread
+            .compensation
+        )
+
         opportunity, _ = (
             security_data_to_opportunity(
                 security=security,
-                spread_compensation=spread,
+                spread_compensation=(
+                    compensation
+                ),
                 as_of_date=as_of_date,
             )
         )
@@ -354,25 +373,29 @@ def find_source_security(
                 False,
             )
         ):
-            return security
+            return item
 
     return None
 
 
 def print_source_security(
-    security,
+    source_item,
 ) -> None:
-    """
-    Print the identity of one production security.
-    """
-
-    if security is None:
+    if source_item is None:
         print(
             "   Security Identity: "
             "Unable to match source record."
         )
 
         return
+
+    security = source_item[
+        "security"
+    ]
+
+    assessment = source_item[
+        "assessment"
+    ]
 
     print(
         f"   CUSIP: "
@@ -435,17 +458,32 @@ def print_source_security(
             f"{security.source}"
         )
 
+    print(
+        f"   Treasury Benchmark: "
+        f"{assessment.benchmark.benchmark_name}"
+    )
+
+    print(
+        f"   Benchmark Yield: "
+        f"{assessment.benchmark.benchmark_yield_percent:.2f}%"
+    )
+
+    print(
+        f"   Calculated Spread: "
+        f"{assessment.spread.spread_bps:.0f} bps"
+    )
+
+    print(
+        f"   Spread Compensation: "
+        f"{assessment.spread.compensation}"
+    )
+
 
 def print_decision_summary(
     decision,
-    imported_securities,
+    spread_metadata,
     as_of_date,
 ) -> None:
-    """
-    Print Anchor's primary decision output together with
-    the identity of the original production securities.
-    """
-
     print()
     print("ANCHOR DECISION")
     print("---------------")
@@ -455,65 +493,59 @@ def print_decision_summary(
         f"{decision['headline']}"
     )
 
-    top = decision[
-        "top_opportunity"
-    ]
-
     selected = decision[
         "selected_opportunities"
     ]
 
-    if top is None:
-        print(
-            "Top Opportunity: NONE"
-        )
-
-    else:
+    if selected:
         print()
         print("TOP-RANKED SECURITY")
         print("-------------------")
 
-        if selected:
-            top_selected = selected[0]
+        top_selected = (
+            selected[0]
+        )
 
-            source_security = (
-                find_source_security(
-                    selected_opportunity=top_selected,
-                    imported_securities=(
-                        imported_securities
-                    ),
-                    as_of_date=as_of_date,
-                )
+        source_item = (
+            find_source_security(
+                selected_opportunity=(
+                    top_selected
+                ),
+                spread_metadata=(
+                    spread_metadata
+                ),
+                as_of_date=as_of_date,
             )
+        )
 
-            print_source_security(
-                source_security
-            )
+        print_source_security(
+            source_item
+        )
 
-            print(
-                f"   Anchor Classification: "
-                f"{top_selected['classification']}"
-            )
+        print(
+            f"   Anchor Classification: "
+            f"{top_selected['classification']}"
+        )
 
-            print(
-                f"   Stated Yield: "
-                f"{top_selected['stated_yield_percent']:.2f}%"
-            )
+        print(
+            f"   Stated Yield: "
+            f"{top_selected['stated_yield_percent']:.2f}%"
+        )
 
-            print(
-                f"   Risk Penalty: "
-                f"{top_selected['total_risk_penalty_bps']:.0f} bps"
-            )
+        print(
+            f"   Risk Penalty: "
+            f"{top_selected['total_risk_penalty_bps']:.0f} bps"
+        )
 
-            print(
-                f"   Risk-Adjusted Yield: "
-                f"{top_selected['risk_adjusted_yield_percent']:.2f}%"
-            )
+        print(
+            f"   Risk-Adjusted Yield: "
+            f"{top_selected['risk_adjusted_yield_percent']:.2f}%"
+        )
 
-            print(
-                f"   Ranking Score: "
-                f"{top_selected['ranking_score']:.2f}"
-            )
+        print(
+            f"   Ranking Score: "
+            f"{top_selected['ranking_score']:.2f}"
+        )
 
     print()
     print("SELECTED OPPORTUNITIES")
@@ -523,11 +555,13 @@ def print_decision_summary(
         selected,
         start=1,
     ):
-        source_security = (
+        source_item = (
             find_source_security(
-                selected_opportunity=opportunity,
-                imported_securities=(
-                    imported_securities
+                selected_opportunity=(
+                    opportunity
+                ),
+                spread_metadata=(
+                    spread_metadata
                 ),
                 as_of_date=as_of_date,
             )
@@ -540,7 +574,7 @@ def print_decision_summary(
         )
 
         print_source_security(
-            source_security
+            source_item
         )
 
         print(
@@ -660,21 +694,6 @@ def main():
         )
     )
 
-    opportunities = []
-
-    for security, spread_compensation in (
-        imported_securities
-    ):
-        opportunities.append(
-            security_data_to_opportunity(
-                security=security,
-                spread_compensation=(
-                    spread_compensation
-                ),
-                as_of_date=as_of_date,
-            )
-        )
-
     try:
         market_data = (
             collect_fred_market_data()
@@ -689,6 +708,17 @@ def main():
         build_regime_from_market_data(
             market_data
         )
+    )
+
+    (
+        opportunities,
+        spread_metadata,
+    ) = build_production_inputs(
+        imported_securities=(
+            imported_securities
+        ),
+        market_data=market_data,
+        as_of_date=as_of_date,
     )
 
     decision = run_anchor(
@@ -715,13 +745,41 @@ def main():
             {
                 "security": (
                     security_data_to_dict(
-                        security
+                        item["security"]
                     )
                 ),
-                "spread_compensation": spread,
+                "benchmark": {
+                    "name": (
+                        item[
+                            "assessment"
+                        ]
+                        .benchmark
+                        .benchmark_name
+                    ),
+                    "yield_percent": (
+                        item[
+                            "assessment"
+                        ]
+                        .benchmark
+                        .benchmark_yield_percent
+                    ),
+                },
+                "spread_bps": (
+                    item[
+                        "assessment"
+                    ]
+                    .spread
+                    .spread_bps
+                ),
+                "spread_compensation": (
+                    item[
+                        "assessment"
+                    ]
+                    .spread
+                    .compensation
+                ),
             }
-            for security, spread
-            in imported_securities
+            for item in spread_metadata
         ],
         "decision": decision,
     }
@@ -758,13 +816,13 @@ def main():
     )
 
     print_security_summary(
-        imported_securities
+        spread_metadata
     )
 
     print_decision_summary(
         decision=decision,
-        imported_securities=(
-            imported_securities
+        spread_metadata=(
+            spread_metadata
         ),
         as_of_date=as_of_date,
     )
