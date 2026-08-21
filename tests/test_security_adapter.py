@@ -155,7 +155,7 @@ def test_tips_preserves_security_type():
     assert opportunity.security_type == "TIPS"
 
 
-def test_cd_maps_to_corporate_for_anchor_v1():
+def test_cd_preserves_security_type():
     security = make_security(
         security_type="CD",
     )
@@ -168,7 +168,7 @@ def test_cd_maps_to_corporate_for_anchor_v1():
         )
     )
 
-    assert opportunity.security_type == "CORPORATE"
+    assert opportunity.security_type == "CD"
 
 
 def test_adapter_preserves_yield_to_maturity():
