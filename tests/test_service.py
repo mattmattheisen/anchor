@@ -333,6 +333,7 @@ def test_run_anchor_output_contains_expected_sections():
     )
 
     assert set(result.keys()) == {
+        "schema_version",
         "headline",
         "recommendation",
         "portfolio_posture",
