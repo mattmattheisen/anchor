@@ -9,6 +9,7 @@ modules should be able to assume that their inputs are
 well-formed.
 """
 
+import math
 from typing import Iterable, List, Tuple
 
 from engine.models import FixedIncomeOpportunity
@@ -87,9 +88,23 @@ def validate_opportunity(
             f"{opportunity.security_type}"
         )
 
+    if not math.isfinite(
+        opportunity.maturity_years
+    ):
+        raise ValueError(
+            "maturity_years must be finite."
+        )
+
     if opportunity.maturity_years <= 0:
         raise ValueError(
             "maturity_years must be greater than 0."
+        )
+
+    if not math.isfinite(
+        opportunity.yield_percent
+    ):
+        raise ValueError(
+            "yield_percent must be finite."
         )
 
     if opportunity.yield_percent < 0:
