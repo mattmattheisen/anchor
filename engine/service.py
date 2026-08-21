@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, Tuple
 
 from engine.models import FixedIncomeOpportunity
 from engine.orchestrator import run_decision_process
-from engine.pipeline import run_pipeline
+from engine.pipeline import run_decision_pipeline
 from engine.regime import RegimeAssessment
 from engine.validation import validate_anchor_inputs
 
@@ -75,7 +75,7 @@ def run_anchor(
         regime=regime,
     )
 
-    pipeline = run_pipeline(
+    pipeline = run_decision_pipeline(
         opportunities=validated_opportunities,
         regime=regime,
     )
