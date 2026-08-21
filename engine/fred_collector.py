@@ -44,8 +44,14 @@ FRED_GRAPH_CSV_URL = (
 
 
 SERIES_FED_FUNDS = "DFF"
+
+SERIES_TREASURY_1Y = "DGS1"
 SERIES_TREASURY_2Y = "DGS2"
+SERIES_TREASURY_3Y = "DGS3"
+SERIES_TREASURY_5Y = "DGS5"
+SERIES_TREASURY_7Y = "DGS7"
 SERIES_TREASURY_10Y = "DGS10"
+
 SERIES_REAL_YIELD_10Y = "DFII10"
 SERIES_BREAKEVEN_10Y = "T10YIE"
 SERIES_CREDIT_IG_OAS = "BAMLC0A0CM"
@@ -377,6 +383,15 @@ def collect_fred_market_data() -> MarketDataSnapshot:
     Collect the FRED series required by Anchor and return
     a validated MarketDataSnapshot.
 
+    Treasury nominal-curve observations currently include:
+
+        1-year
+        2-year
+        3-year
+        5-year
+        7-year
+        10-year
+
     Daily change fields use a 30-calendar-day comparison
     window.
 
@@ -391,8 +406,28 @@ def collect_fred_market_data() -> MarketDataSnapshot:
         DAILY_DOWNLOAD_WINDOW_DAYS,
     )
 
+    treasury_1y = fetch_fred_series(
+        SERIES_TREASURY_1Y,
+        DAILY_DOWNLOAD_WINDOW_DAYS,
+    )
+
     treasury_2y = fetch_fred_series(
         SERIES_TREASURY_2Y,
+        DAILY_DOWNLOAD_WINDOW_DAYS,
+    )
+
+    treasury_3y = fetch_fred_series(
+        SERIES_TREASURY_3Y,
+        DAILY_DOWNLOAD_WINDOW_DAYS,
+    )
+
+    treasury_5y = fetch_fred_series(
+        SERIES_TREASURY_5Y,
+        DAILY_DOWNLOAD_WINDOW_DAYS,
+    )
+
+    treasury_7y = fetch_fred_series(
+        SERIES_TREASURY_7Y,
         DAILY_DOWNLOAD_WINDOW_DAYS,
     )
 
@@ -427,9 +462,29 @@ def collect_fred_market_data() -> MarketDataSnapshot:
                 fed_funds
             )
         ),
+        treasury_1y=(
+            _latest_value(
+                treasury_1y
+            )
+        ),
         treasury_2y=(
             _latest_value(
                 treasury_2y
+            )
+        ),
+        treasury_3y=(
+            _latest_value(
+                treasury_3y
+            )
+        ),
+        treasury_5y=(
+            _latest_value(
+                treasury_5y
+            )
+        ),
+        treasury_7y=(
+            _latest_value(
+                treasury_7y
             )
         ),
         treasury_10y=(
@@ -453,9 +508,37 @@ def collect_fred_market_data() -> MarketDataSnapshot:
             )
             * 100.0
         ),
+        treasury_1y_change_bps=(
+            _change_from_lookback(
+                treasury_1y,
+                DAILY_LOOKBACK_DAYS,
+            )
+            * 100.0
+        ),
         treasury_2y_change_bps=(
             _change_from_lookback(
                 treasury_2y,
+                DAILY_LOOKBACK_DAYS,
+            )
+            * 100.0
+        ),
+        treasury_3y_change_bps=(
+            _change_from_lookback(
+                treasury_3y,
+                DAILY_LOOKBACK_DAYS,
+            )
+            * 100.0
+        ),
+        treasury_5y_change_bps=(
+            _change_from_lookback(
+                treasury_5y,
+                DAILY_LOOKBACK_DAYS,
+            )
+            * 100.0
+        ),
+        treasury_7y_change_bps=(
+            _change_from_lookback(
+                treasury_7y,
                 DAILY_LOOKBACK_DAYS,
             )
             * 100.0
