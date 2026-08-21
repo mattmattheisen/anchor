@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 
 from engine.pipeline import PipelineOpportunityResult
 from engine.report import DecisionReport
+from engine.version import ANCHOR_SCHEMA_VERSION
 
 
 def serialize_opportunity(
@@ -65,8 +66,8 @@ def serialize_decision_report(
     - booleans
     - None
 
-    This keeps the analytical engine independent from any
-    particular presentation or transport layer.
+    The schema_version field identifies the public output
+    contract used by this serialized result.
     """
 
     selected_opportunities: List[Dict[str, Any]] = [
@@ -75,6 +76,7 @@ def serialize_decision_report(
     ]
 
     return {
+        "schema_version": ANCHOR_SCHEMA_VERSION,
         "headline": report.headline,
         "recommendation": report.recommendation,
         "portfolio_posture": {
